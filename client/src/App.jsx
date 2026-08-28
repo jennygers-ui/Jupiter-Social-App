@@ -379,7 +379,7 @@ function Auth({ onAuth, toast }) {
           <OrbitArt />
         </div>
         <div className="relative px-6 pb-7">
-          <p className="text-[12.5px] leading-relaxed text-fern/90">A small network for your people.</p>
+          <p className="text-[12.5px] leading-relaxed text-fern/90">your gravity, your people.</p>
         </div>
       </div>
 
@@ -387,7 +387,7 @@ function Auth({ onAuth, toast }) {
       <div className="flex flex-1 flex-col items-center px-5 py-8 sm:px-10 lg:justify-center lg:py-12">
         <div className="mb-8 lg:hidden">
           <Wordmark size="text-4xl" />
-          <p className="mt-2 text-sm text-ink-soft">A small network for your people.</p>
+          <p className="mt-2 text-sm text-ink-soft">your gravity, your people.</p>
         </div>
 
         <div className="w-full max-w-md">
