@@ -1,0 +1,252 @@
+====================================================================
+ JUPITER (j.) — APPLICATION FLOWCHART
+ Step-by-step user flow of the social network
+ Stack: React + Vite + TailwindCSS v4 · Node.js + Express +
+        Socket.IO · JWT auth · in-memory data
+====================================================================
+
+LEGEND
+------
+ [SCREEN]    a full view the user sees
+ (action)    something the user does
+   ->        leads to / results in
+   x>        blocked path (validation error) - user stays put
+   *         real-time behavior (Socket.IO / live updates)
+
+
+--------------------------------------------------------------------
+1. APP LAUNCH
+--------------------------------------------------------------------
+
+ Open the app
+   |
+   +-> Is there a saved JWT in localStorage?
+         |
+         +-> NO  ---------------------------------> [LOGIN]
+         |
+         +-> YES -> validate token (GET /api/users/me)
+                      |
+                      +-> valid   ----------------> [MAIN APP - Home]
+                      +-> expired -> clear token,
+                                     toast "Session expired"
+                                     -------------> [LOGIN]
+
+
+--------------------------------------------------------------------
+2. LOGIN / REGISTER PAGE
+--------------------------------------------------------------------
+
+ [LOGIN]  (brand panel on desktop: logo, headline, orbit logo;
+           sign-in form on the right)
+   |
+   +-> (switch tab) "Sign in" <-> "Register"
+   |
+   +-> (click "Try the demo") -> auto-fills demo account
+   |     -> validate -> store JWT -> [MAIN APP - Home]
+   |        (demo login: noa@example.com / password)
+   |
+   +-> (Sign in) enter email + password -> (submit)
+   |     -> POST /api/auth/login
+   |        |
+   |        x> wrong email/password -> show red error, stay
+   |        +-> OK -> receive JWT -> store in localStorage
+   |              -> [MAIN APP - Home]
+   |
+   +-> (Register) enter full name, email, password -> (submit)
+         -> POST /api/auth/register
+            |
+            x> name < 2 chars        -> error, stay
+            x> invalid email format  -> error, stay
+            x> password < 6 chars    -> error, stay
+            x> email already exists  -> error, stay
+            +-> OK -> account created, JWT stored
+                  -> [MAIN APP - Home]
+
+
+--------------------------------------------------------------------
+3. MAIN APP SHELL (after login)
+--------------------------------------------------------------------
+
+ [MAIN APP]
+   |
+   +-> Sidebar (desktop):  Home / People / Messages / Profile
+   |      - Messages shows an UNREAD badge *
+   |      - bottom: logged-in user (avatar, name, email)
+   |        + (log out) -> clear JWT -> [LOGIN]
+   |
+   +-> Mobile: top header (logo, log out, avatar -> Profile)
+   |           bottom tab bar (Home/People/Messages/Profile)
+   |
+   +-> Content area shows the selected screen:
+         Home  -> section 4
+         People -> section 5
+         Messages -> section 6
+         Profile -> section 7
+
+
+--------------------------------------------------------------------
+4. HOME (FEED)
+--------------------------------------------------------------------
+
+ [HOME]
+   |
+   +-> Greeting header ("Good morning/afternoon/evening, <name>.")
+   |
+   +-> COMPOSER card
+   |     (type a post, max 280 chars, live char counter;
+   |      Ctrl/Cmd+Enter also posts)
+   |     -> (click Post) -> POST /api/posts/
+   |        x> empty or > 280 chars -> button disabled
+   |        +-> OK -> post appears at top of feed,
+   |                  toast "Posted to your orbit"
+   |
+   +-> FEED (my posts + my friends' posts, newest first)
+   |     each post card:
+   |       +-> (click author name) -------> open chat with author
+   |       +-> (click Like)  -> toggle like (heart fills,
+   |       |                    count updates, pop animation)
+   |       +-> (click Comment) -> expand comment list
+   |       |       +-> comments show author, text, time
+   |       |       +-> (type + send) -> POST /api/posts/:id/comments
+   |       |            -> comment appears *
+   |       +-> (click trash) own posts ONLY
+   |               -> inline "Delete? Yes / No" (auto-cancels in 3s)
+   |               -> (Yes) -> DELETE /api/posts/:id
+   |                    -> post removed, toast "Post deleted"
+   |
+   +-> RIGHT RAIL (desktop only)
+   |     +-> "Online now": friends currently online
+   |     |     -> (click a friend) -> open chat with them
+   |     +-> "People to meet": users you are not friends with
+   |     |     -> (Add) -> send friend request
+   |     |     -> (See all) -> [PEOPLE]
+   |     +-> Tip card: how to test live chat with two tabs
+   |
+   +-> Empty state (no posts visible):
+         "Your orbit is quiet" -> (Find people) -> [PEOPLE]
+
+
+--------------------------------------------------------------------
+5. PEOPLE
+--------------------------------------------------------------------
+
+ [PEOPLE]
+   |
+   +-> SEARCH BAR (top)
+   |     (type name or email; search is debounced)
+   |     -> GET /api/users/?search=
+   |        +-> results list (each row has the actions below)
+   |        +-> no match -> "No one matches ..." empty state
+   |     (clear X) -> back to the sections below
+   |
+   +-> SECTION: Requests (incoming)      [only if any exist]
+   |     each request row:
+   |       +-> (Accept)  -> PATCH /api/friends/:id
+   |       |     -> becomes friend, conversation auto-created *
+   |       +-> (X decline) -> DELETE /api/friends/:id -> removed
+   |
+   +-> SECTION: Sent requests            [only if any exist]
+   |     +-> (click "Requested") -> cancel request -> removed
+   |
+   +-> SECTION: Your friends
+   |     each friend row:
+   |       +-> (Message) -> open chat with this friend -> [MESSAGES]
+   |       +-> (X) -> inline "Sure?" confirm
+   |            -> (Sure?) -> unfriend (removed from list)
+   |     empty state: "No friends yet"
+   |
+   +-> SECTION: Discover (everyone else)
+         +-> (Add) -> POST /api/friends/:id
+              -> button becomes "Requested" (cancelable)
+              -> when the other user accepts, you become friends *
+
+
+--------------------------------------------------------------------
+6. MESSAGES (REAL-TIME CHAT)
+--------------------------------------------------------------------
+
+ [MESSAGES]
+   |
+   +-> LEFT: conversation list
+   |     each row: avatar (+ online dot), name, last message
+   |     preview ("You: ..." for your own), time, UNREAD badge
+   |     -> (click a conversation) -> open it on the right
+   |        (marks it as read; unread badge clears *)
+   |
+   +-> RIGHT: chat pane
+   |     +-> Header: avatar, name, status
+   |     |     ("Online" / "Away" / "typing..." *)
+   |     +-> Message history, grouped by day
+   |     |     ("Today", "Yesterday", or the date)
+   |     |     - my messages: green bubbles, right side
+   |     |     - their messages: white bubbles, left side
+   |     +-> Input box:
+   |           (type) -> broadcasts "typing" to the other user *
+   |           (Enter / send button) -> POST /api/messages/:convId
+   |              -> message appears instantly (optimistic UI)
+   |              -> delivered to the other user in real time *
+   |     +-> Empty conversation: "Say hi to <name>" prompt
+   |
+   +-> Empty state (nothing selected): "Pick a conversation"
+   |
+   +-> Mobile: shows list OR chat (back arrow returns to list)
+   |
+   +-> LIVE BEHAVIOR *
+         - incoming messages appear without refreshing
+         - unread badges update in the list, sidebar and tab bar
+         - "typing..." indicator shows while the other user types
+
+
+--------------------------------------------------------------------
+7. PROFILE
+--------------------------------------------------------------------
+
+ [PROFILE]
+   |
+   +-> Header card
+   |     dark-green cover (orbit rings + "j" watermark),
+   |     large avatar with online dot, name, email, join date
+   |
+   +-> Stats row:  Posts | Friends | Likes received
+   |
+   +-> ABOUT (bio)
+   |     +-> (Edit profile) -> form opens:
+   |     |       - Name field (min 2 chars)
+   |     |       - Bio field (max 160 chars, live counter)
+   |     |       -> (Save) -> PATCH /api/users/me
+   |     |            x> invalid name -> error toast
+   |     |            +-> OK -> profile updated,
+   |     |                      toast "Profile updated"
+   |     |       -> (Cancel) -> discard changes
+   |     +-> (Cancel button while editing) -> close the form
+   |
+   +-> YOUR POSTS
+         - same post cards as the feed
+           (Like / Comment / Delete work exactly as in section 4)
+         - empty state: "Nothing posted yet"
+
+
+--------------------------------------------------------------------
+8. GLOBAL BEHAVIOR (applies everywhere)
+--------------------------------------------------------------------
+
+ * REAL-TIME (Socket.IO / live bus)
+     - chat messages, typing indicators and presence sync live
+     - opening a second tab as another user lets you chat
+       with yourself in real time
+
+ * TOASTS
+     - small green (success) or coral (error) notifications,
+       bottom-right, auto-dismiss after ~3.5 seconds
+
+ * LOADING
+     - skeleton placeholders while data loads
+     - buttons show a spinner / "Signing in..." while working
+
+ * SESSION
+     - JWT stored in localStorage: stay logged in after refresh
+     - log out from the sidebar (desktop) or header (mobile)
+
+====================================================================
+ END OF FLOW
+====================================================================
