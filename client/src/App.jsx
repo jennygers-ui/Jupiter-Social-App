@@ -420,7 +420,7 @@ function Auth({ onAuth, toast }) {
               {mode === "register" && (
                 <div>
                   <label className="eyebrow mb-1.5 block" htmlFor="f-name">Full name</label>
-                  <input id="f-name" className="field" placeholder="Yisrael Yisraeli" value={form.name} onChange={set("name")} autoComplete="name" />
+                  <input id="f-name" className="field" placeholder="Type your full name" value={form.name} onChange={set("name")} autoComplete="name" />
                 </div>
               )}
               <div>
