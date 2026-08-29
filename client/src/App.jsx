@@ -420,7 +420,7 @@ function Auth({ onAuth, toast }) {
               {mode === "register" && (
                 <div>
                   <label className="eyebrow mb-1.5 block" htmlFor="f-name">Full name</label>
-                  <input id="f-name" className="field" placeholder="Yisrael Yisraeli" value={form.name} onChange={set("name")} autoComplete="name" />
+                  <input id="f-name" className="field" placeholder="Type your full name" value={form.name} onChange={set("name")} autoComplete="name" />
                 </div>
               )}
               <div>
@@ -1200,13 +1200,19 @@ function ChatPane({ conv, token, me, toast, onBack, now }) {
     const offMsg = subscribe("message", ({ conversationId, message }) => {
       if (conversationId !== conv.id) return;
       setMsgs((prev) => {
-        if (!prev || prev.some((m) => m.id === message.id)) return prev;
+        if (!prev) return [message];
+        // Check if we already have this exact message (by id)
+        if (prev.some((m) => m.id === message.id)) return prev;
         // own message arriving back from the wire — swap it with the optimistic temp bubble
         if (message.senderId === me.id) {
           const tempId = [...pending.current.keys()].find((t) => prev.some((m) => m.id === t));
           if (tempId) {
             pending.current.delete(tempId);
             return prev.map((m) => (m.id === tempId ? message : m));
+          }
+          // If no pending temp but we already have a message with same content from ourselves, skip
+          if (prev.some((m) => m.senderId === me.id && m.text === message.text && Math.abs(m.createdAt - message.createdAt) < 1000)) {
+            return prev;
           }
         }
         return [...prev, message];
